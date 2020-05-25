@@ -79,7 +79,10 @@ class MongoModel extends Command
         //Name creating model
         $modelName = $this->argument('name');
         //If "Model" in name Model or not add "Model" in name
-        if (preg_match("/Model$/", $modelName) || $this->option('smallname')) return;
+        if (preg_match("/Model$/", $modelName) || $this->option('smallname')) {
+            $this->modelName = $modelName;
+            return;
+        }
         //Set model name
         $this->modelName = ucfirst($modelName) . 'Model';
     }
@@ -103,14 +106,14 @@ class MongoModel extends Command
 
     private function checkDir() {
         //Get models dir
-        $this->modelsDir = trim(config('app.models_dir'),'/');
+        $this->modelsDir = trim(config('app.models_dir'),DIRECTORY_SEPARATOR);
         //If not set params
         if (empty($this->modelsDir)) {
             $this->error('You must specify the parameter "MODELS_DIR" in the .env file and "models_dir" in "config/app.php"');
             die();
         }
         //Set namespace
-        $this->namespaceModels = str_replace('/','\\',$this->modelsDir);
+        $this->namespaceModels = str_replace(DIRECTORY_SEPARATOR,'\\',$this->modelsDir);
         if (is_dir(app_path($this->modelsDir))) return;
         //Set split path
         $modelsDir = explode(DIRECTORY_SEPARATOR,$this->modelsDir);
