@@ -133,7 +133,7 @@ class MongoLaravel
         //if setting is added
         if (
         preg_match(
-            "/MONGO\_HOST=[^\n]*\nMONGO\_PORT=[^\n]*\nMONGO\_USER=[^\n]*\nMONGO\_PASSWORD=[^\n]*\nMONGO\_DEBUG=[^\n]*\nMONGO\_DB=/",
+            "/MONGO\_HOST=[^\n]*\nMONGO\_PORT=[^\n]*\nMONGO\_USER=[^\n]*\nMONGO\_PASSWORD=[^\n]*\nMONGO\_DEBUG=[^\n]*\nMONGO\_DB=[^\n]MONGO\_INC\_COLLECTION=/",
             $env
         )
         ) {
@@ -141,7 +141,7 @@ class MongoLaravel
             return;
         }
         //Added setting
-        $env .= "\nMONGO_HOST=127.0.0.1\nMONGO_PORT=27017\nMONGO_USER=\nMONGO_PASSWORD=\nMONGO_DEBUG=true\nMONGO_DB=admin\n";
+        $env .= "\nMONGO_HOST=127.0.0.1\nMONGO_PORT=27017\nMONGO_USER=\nMONGO_PASSWORD=\nMONGO_DEBUG=true\nMONGO_DB=admin\nMONGO_INC_COLLECTION=test.inc\n";
         //Added setting
         file_put_contents($this->appDir.'.env',$env);
         echo 'INFO: Env setting is added'."\n";
@@ -170,7 +170,8 @@ class MongoLaravel
             ."\t\t'user' => env('MONGO_USER'),\n"
             ."\t\t'password' => env('MONGO_PASSWORD'),\n"
             ."\t\t'debug' => env('MONGO_DEBUG',false),\n"
-            ."\t\t'db' => env('MONGO_DB','admin')\n"
+            ."\t\t'db' => env('MONGO_DB','admin'),\n"
+            ."\t\t'inc' => env('MONGO_INC_COLLECTION','test.inc')\n"
             ."\t],\n\n"
             ."];\n";
         //else added config

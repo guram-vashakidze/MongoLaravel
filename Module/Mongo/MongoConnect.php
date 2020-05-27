@@ -15,6 +15,7 @@ use \MongoDB\Driver\Exception\BulkWriteException;
 use \MongoDB\Driver\BulkWrite;
 use \MongoDB\Driver\Command as MongoCommand;
 use \MongoDB\Driver\Query;
+use \MongoDB\BSON\ObjectId as MongoId;
 
 /**
  * Class Connect
@@ -53,6 +54,12 @@ class MongoConnect
      * @var array|string|int|float|\MongoDB\BSON\ObjectId
      */
     private $lastInsertId = null;
+
+    /**
+     * Collection name
+     * @var string
+     */
+    protected $collection;
 
     /**
      * Connect constructor.
@@ -124,11 +131,10 @@ class MongoConnect
     /**
      * Execute query mongo
      * @param array $query - query data
-     * @param string $collection - query collection
      * @param array $options - query options
      * @return array|null
      */
-    protected function executeQuery(array $query,string $collection,array $options = []): ?array
+    protected function executeQuery(array $query,array $options = []): ?array
     {
         try {
             $query = new Query($query, $options);
@@ -140,7 +146,7 @@ class MongoConnect
         }
         //Run query
         try {
-            $result = $this->connect->executeQuery($this->connectionData->getDb() . '.' . $collection, $query);
+            $result = $this->connect->executeQuery($this->connectionData->getDb() . '.' . $this->collection, $query);
         } catch (MongoExceptionInterface $e) {
             //Set error
             if ($this->connectionData->getDebug())
@@ -178,6 +184,8 @@ class MongoConnect
     protected function setBulk(string $bulkType,array $params): MongoConnect
     {
         $this->bulkType = $bulkType;
+        //Set inc id
+        $this->getIdForInsertItem(...$params);
         //Creating bulk object
         if ($this->bulk === null) $this->bulk = new BulkWrite();
         //if insert job - save id
@@ -186,6 +194,57 @@ class MongoConnect
             $this->bulk->{$this->bulkType}(...$params)
         );
         return $this;
+    }
+
+    /**
+     * Get _id to inserted item
+     * @param array $insert
+     */
+    private function getIdForInsertItem(array &$insert)
+    {
+        //If not add id
+        if ($this->bulkType !== 'insert' || !empty($insert['_id']) || !in_array($insert['_id'],['#inc','#string'])) return;
+        //Added id
+        $insert['_id'] = $this->id($insert['_id']);
+    }
+
+    /**
+     * Get inc id for insert fields
+     * @return int|null
+     */
+    private function getIncId(): int
+    {
+        //Data for inc db
+        $inc = $this->connectionData->getIncData();
+        //if not install inc db
+        if ($inc === null) {
+            throw new CommandException("Not install MONGO_INC_COLLECTION in .env file or not install 'config.database.mongo.inc' field");
+        }
+        //Data for increment
+        $db = $this->connectionData->getDb();
+        //If not collections
+        if (empty($db) || empty($this->collection))
+            throw new CommandException("Name db or name collection is not found");
+        //Set db for increment data
+        $this->connectionData->setDb($inc['db']);
+        //Set inc collection
+        $result = $this->executeCommand([
+            'findAndModify' => $inc['collection'],
+            'query' => [
+                '_id' => $db.'.'.$this->collection
+            ],
+            'update' => [
+                '$inc' => ['inc_id' => 1]
+            ],
+            'new' => true,
+            'upsert' => true
+        ]);
+        //Set last db
+        $this->connectionData->setDb($db);
+        //if error
+        if ($result === null)
+            throw new CommandException("Failed to generate unique _id");
+        return $result[0]->value->inc_id;
     }
 
 
@@ -210,6 +269,25 @@ class MongoConnect
             return null;
         }
         return $result->{'get'.['update' => 'Modified','insert' => 'Inserted','delete' => 'Deleted'][$this->bulkType].'Count'}();
+    }
+
+    /**
+     * Get id for mongo item
+     * @param null $id
+     * @return int|MongoId|string
+     */
+    public function id($id = null)
+    {
+        //If need generate inc id
+        if ($id === '#inc') return $this->getIncId();
+        //If need generate MongoId
+        if ($id === null) return new MongoId();
+        //If need string MongoId
+        if ($id === '#string') return (string)$this->id();
+        //If mongo string hash to mongo objectID
+        if (is_string($id)) return new MongoId($id);
+        //return string id
+        return (string)$id;
     }
 
 }

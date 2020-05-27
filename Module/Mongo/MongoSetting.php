@@ -40,6 +40,11 @@ class MongoSetting
      */
     private $debug;
 
+    /**
+     * @var array - data for increment _id
+     */
+    private $inc = ['db' => null, 'collection' => null];
+
     public function __construct()
     {
         $this->host = config('database.mongo.host');
@@ -47,7 +52,10 @@ class MongoSetting
         $this->user = config('database.mongo.user');
         $this->password = config('database.mongo.password');
         $this->debug = config('database.mongo.debug');
+        //Set name DB
         $this->setDb();
+        //set data for inc _id
+        $this->setIncCollections();
     }
 
     /**
@@ -90,7 +98,33 @@ class MongoSetting
      * Return set db name
      * @return string
      */
-    public function getDb(): string {
+    public function getDb(): string
+    {
         return $this->db;
+    }
+
+    /**
+     * set data for inc _id
+     */
+    private function setIncCollections()
+    {
+        //Get default collection/db
+        $data = config('database.mongo.inc');
+        if (empty($data)) return;
+        //split data on db and collection
+        $data = explode('.', $data);
+        //if not data
+        if (empty($data[0]) || empty($data[1])) return;
+        $this->inc = ['db' => $data[0], 'collection' => $data[1]];
+    }
+
+    /**
+     * return inc data
+     * @return array|null
+     */
+    public function getIncData(): ?array
+    {
+        if ($this->inc['db'] === null) return null;
+        return $this->inc;
     }
 }

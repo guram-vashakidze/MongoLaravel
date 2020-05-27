@@ -7,14 +7,8 @@ class MongoModel extends MongoConnect
 {
 
     /**
-     * Collection name
-     * @var string
-     */
-    protected $collection;
-
-    /**
      * Result command to DB
-     * @var array
+     * @var array|int|bool
      */
     private $result;
 
@@ -65,7 +59,7 @@ class MongoModel extends MongoConnect
 
     /**
      * Getting result query
-     * @return array
+     * @return array|int|bool
      */
     public function get()
     {
@@ -201,12 +195,12 @@ class MongoModel extends MongoConnect
         $this->offOnlyCount();
         //Checking options query
         $_options = [];
-        if (!empty($options['fields'])) $_options['projection'] = $options['fields'];
+        if (!empty($options['fields'])) $_options['projection'] = self::checkRequestFields($options['fields']);
         if (!empty($options['sort'])) $_options['sort'] = $options['sort'];
         if (!empty($options['limit']) && is_numeric($options['limit'])) $_options['limit'] = (int)$options['limit'];
         if (!empty($options['skip']) && is_numeric($options['skip'])) $_options['skip'] = (int)$options['skip'];
         //Run query
-        $this->result = $this->executeQuery($query, $this->collection, $options);
+        $this->result = $this->executeQuery($query, $options);
         //if is it needed counting result
         return $this->findCount($query, $options);
     }
@@ -241,7 +235,7 @@ class MongoModel extends MongoConnect
      * @param array $options
      * @return MongoModel
      */
-    private function findOne(array $query = [], array $options = []): MongoModel
+    public function findOne(array $query = [], array $options = []): MongoModel
     {
         $this->offOnlyCount();
         //Set one result
@@ -251,6 +245,56 @@ class MongoModel extends MongoConnect
         //Set first result
         $this->result = !empty($this->result[0]) ? $this->result[0] : null;
         return $this;
+    }
+
+    /**
+     * Run find And Mod query
+     * @param array $query - find query
+     * @param array $update - update data
+     * @param bool $remove - remove data if find
+     * @param bool $new - return new data
+     * @param array $fields - return fields
+     * @param bool $upsert - insert if not find
+     * @return MongoModel
+     */
+    public function findAndModify(array $query = [],array $update = [],bool $new = false,bool $remove = false,array $fields = [],bool $upsert = false): MongoModel
+    {
+        $this->offOnlyCount();
+        //Command to db
+        $command = [
+            'findAndModify' => $this->collection,
+            'query' => $query,
+            'update' => $update,
+            'remove' => $remove,
+            'new' => $new,
+            'fields' => self::checkRequestFields($fields),
+            'upsert' => $upsert
+        ];
+        //run command
+        $result = $this->executeCommand($command);
+        //If error
+        if ($result === null) return $this;
+        //Set count result
+        $this->result = $result;
+        return $this;
+
+    }
+
+    /**
+     * Check array fields to find/finOne/findAndModify query
+     * @param array $fields - ['field1','field2','field3',...,'fieldN']
+     * @return array
+     */
+    private static function checkRequestFields(array $fields): array {
+        if (empty($fields)) return [];
+        //Array of result
+        $result = [];
+        foreach ($fields as $field) {
+            $result[$field] = true;
+        }
+        //if not added '_id' field
+        if(!in_array('_id',$fields)) $result['_id'] = false;
+        return $result;
     }
 
     /**
